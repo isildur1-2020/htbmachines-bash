@@ -33,125 +33,117 @@ declare -i parameter_counter=0
 function printResponse() {
   response="$1"
   if [ "$response" != "" ]; then
-    echo -e "\n$response"
+    echo -e "\n$response\n"
   else
-	echo -e "${redColour}Sorry, we could not find any machine.${endColour}"
+    echo -e "\n${redColour}Sorry, we could not find any machine.${endColour}\n"
+    exit 1
   fi
 }
 function getMachineNamesByDifficulty() {
-  echo -e "\n${yellowColour}[+] Searching machine names by difficulty <$machineDifficulty>...${endColour}"
+  echo -e "\n${yellowColour}[+] Searching machine names by difficulty '$machineDifficulty':${endColour}"
   machineNames="$(cat $htbmachines | grep -iB 5 "dificultad: \"$machineDifficulty\"" | grep "name: " | awk '{print $2}' | tr -d '",' | column)"
   printResponse "$machineNames"
+  exit 0
 }
 
 function showHelpPanel() {
-	echo -e "\n${yellowColour}[+]${endColour}${grayColour} How to use?${endColour}"
-	echo -e "\t${purpleColour}-d${endColour}${grayColour} Get machine names by difficulty${endColour}"
-	echo -e "\t${purpleColour}u)${endColour}${grayColour} Update database${endColour}"
-	echo -e "\t${purpleColour}m)${endColour}${grayColour} Search for a machine name${endColour}"
-	echo -e "\t${purpleColour}i)${endColour}${grayColour} Search for a IP address${endColour}"
-	echo -e "\t${purpleColour}y)${endColour}${grayColour} Get youtube link by machine name${endColour}"
-	echo -e "\t${purpleColour}o)${endColour}${grayColour} Get machine names by operative system${endColour}"
-	echo -e "\t${purpleColour}s)${endColour}${grayColour} Get machine names by skill${endColour}"
-	echo -e "\t${purpleColour}h)${purpleColour}${grayColour} Show help panel${endColour}\n"
+  echo -e "\n${yellowColour}[+]${endColour}${grayColour} How to use?${endColour}"
+  echo -e "\t${purpleColour}- d${endColour}${grayColour} Get machine names by difficulty${endColour}"
+  echo -e "\t${purpleColour}- h${purpleColour}${grayColour} Show help panel${endColour}"
+  echo -e "\t${purpleColour}- i${endColour}${grayColour} Get machine name by ip address${endColour}"
+  echo -e "\t${purpleColour}- m${endColour}${grayColour} Get machine info by machine name${endColour}"
+  echo -e "\t${purpleColour}- o${endColour}${grayColour} Get machine names by operative system${endColour}"
+  echo -e "\t${purpleColour}- s${endColour}${grayColour} Get machine names by skill${endColour}"
+  echo -e "\t${purpleColour}- u${endColour}${grayColour} Update database${endColour}"
+  echo -e "\t${purpleColour}- y${endColour}${grayColour} Get youtube link by machine name${endColour}\n"
+  exit 0
 }
+
+function getMachineNameByIp() {
+  echo -e "\n${yellowColour}[+] Searching machine name by ip address '$ipAddress':${endColour}"
+  machineName="$(cat $htbmachines | grep -EB 3 "ip: \"$ipAddress\"" | grep "name: " | awk '{print $2}' | tr -d '",')"
+  printResponse "$machineName"
+  exit 0
+}
+
+function getMachineInfoByName() {
+  echo -e "\n${yellowColour}[+] Searching machine info by machine name '$machineName':${endColour}"
+  machineInfo="$(cat $htbmachines | awk "/name: \"$machineName\"/,/resuelta: /" | grep -vE "id|sku|youtube|resuelta" | sed 's/^ *//' | tr -d '",')"
+  printResponse "$machineInfo"
+  exit 0
+}
+
+function getMachineNamesByOS() {
+  echo -e "\n${yellowColour}[+] Searching machine name by operative system '$OS':${endColour}"
+  machineNames="$(cat $htbmachines | grep -i "so: \"$OS\"" -B 4 | grep "name" | awk '{print $2}' | tr -d '",' | column)"
+  printResponse "$machineNames"
+  exit 0
+}
+
+function getMachineNamesBySkill() {
+  echo -e "\n${yellowColour}[+] Searching machine names by skill '$skill':${endColour}"
+  machineNames="$(cat $htbmachines | grep "skills: " -B 6 | grep -iB 6 "$skill" | grep "name: " | awk '{print $2}' | tr -d '",' | column)"
+  printResponse "$machineNames"
+  exit 0
+}
+
 
 function downloadData() {
-	echo -e "${yellowColour}[!] Downloading htbmachines data...${endColour}"
-	curl -s $1 > $2
-	js-beautify $2 | sponge $2
-	echo -e "${greenColour}[!] htbmachines data was downloaded succesfully!${endColour}"
+  echo -e "${yellowColour}[!] Downloading htbmachines data...${endColour}"
+  curl -s $1 > $2
+  js-beautify $2 | sponge $2
+  echo -e "${greenColour}[!] htbmachines data was downloaded succesfully!${endColour}"
 }
 
-function updateFiles() {
-	hideCursor
-	if [ ! -f $htbmachines  ]; then
-		downloadData $htbmachinesDataURL $htbmachines
-	else
-		echo -e "${yellowColour}[!] The file is already exists, downloading a copy to compare...${endColour}"
-		downloadData $htbmachinesDataURL $htbmachinesAuxFile
-		md5LocalData=$(md5sum $htbmachines | awk '{print $1}')
-		md5AuxData=$(md5sum $htbmachinesAuxFile | awk '{print $1}')
-		if [ "$md5LocalData" != "$md5AuxData" ]; then
-			echo -e "${redColour}[!] The file are not equal, updating htbmachines data...${endColour}"
-			cp $htbmachinesAuxFile $htbmachines
-		else
-			echo -e "${greenColour}[+] The files are equal, there are not updates."
-		fi
-		rm $htbmachinesAuxFile
-	fi
-	showCursor
-}
-
-function searchMachine() {
-	machineName=$1
-	cat $htbmachines | awk "/name: \"$machineName\"/,/resuelta: /" | grep -vE "id|sku|youtube" | sed 's/^ *//' | tr -d '",'
-}
-
-function searchByIP() {
-	ipAddress=$1
-	machineName="$(cat $htbmachines | grep "ip: \"$ipAddress\"" -B 4 | grep "name: " | sed 's/^ *//' | tr -d '",' | awk '{print $2}')"
-	if [ "$machineName" != "" ]; then
-		echo -e "${greenColour}Info found succesfully.${endColour}"
-		echo -e "${greenColour}The ip $ipAddress correspond to $machineName machine.${endColour}"
-	else 
-		echo -e "${redColour}The name machine could not be found.${endColour}"
-	fi
-}
-
-function findLinkByName() {
-	machineName=$1
-	machineLink="$(cat $htbmachines | awk "/name: \"$machineName\"/,/youtube: /" | tail -n 1 | awk 'NF {print $NF}' | tr -d '",')"
-	if [ "$machineLink" != "" ]; then
-		echo -e "${greenColour}The youtube link for this machine is: $machineLink${endColour}"
-	else
-		echo -e "${redColour}Machine not found.${endColour}"
-	fi
-}
-
-
-
-function getMachinesByOS() {
-	htb_os=$1
-    machineNames="$(cat $htbmachines | grep "so: \"$htb_os\"" -B 4 | grep "name" | awk '{print $2}' | tr -d '",' | column)"
-    if [ "$machineNames" != "" ]; then
-        echo -e "$machineNames"
+function updateHtbmachines() {
+  if [ ! -f $htbmachines  ]; then
+    downloadData $htbmachinesDataURL $htbmachines
+  else
+    echo -e "${yellowColour}[!] The file is already exists, downloading a copy to compare...${endColour}"
+    downloadData $htbmachinesDataURL $htbmachinesAuxFile
+    md5LocalData=$(md5sum $htbmachines | awk '{print $1}')
+    md5AuxData=$(md5sum $htbmachinesAuxFile | awk '{print $1}')
+    if [ "$md5LocalData" != "$md5AuxData" ]; then
+      echo -e "${redColour}[!] The file are not equal, updating htbmachines data...${endColour}"
+      cp $htbmachinesAuxFile $htbmachines
     else
-        echo -e "${redColour}Not found.${endColour}"
+      echo -e "${greenColour}[+] The files are equal, there are not updates."
     fi
+    rm $htbmachinesAuxFile
+  fi
 }
 
-function getMachinesByDifficultyAndOS() {
-	difficulty=$difficulty
-	htb_os=$htb_os
-	machineNames="$(cat $htbmachines | grep "so: \"$htb_os\"" -C 4 | grep "dificultad: \"$difficulty\"" -B 5 | grep "name: " | awk '{print $2}' | tr -d '",' | column)"
-	if [ "$machineNames" != "" ]; then
-        echo -e "$machineNames"
-    else
-        echo -e "${redColour}Not found.${endColour}"
-    fi
+function getYoutubeLinkByName() {
+  echo -e "\n${yellowColour}[+] Searching youtube link by name '$machineName':${endColour}"
+  machineLink="$(cat $htbmachines | awk "/name: \"$machineName\"/,/youtube: /" | tail -n 1 | awk 'NF {print $NF}' | tr -d '",')"
+  printResponse "$machineLink"
+  exit 0
 }
 
-function getMachinesBySkill() {
-	skill=$1
-    machineNames="$(cat $htbmachines | grep "skills: " -B 6 | grep -iB 6 "$skill" | grep "name: " | awk '{print $2}' | tr -d '",' | column)"
-    if [ "$machineNames" != "" ]; then
-        echo -e "$machineNames"
-    else
-        echo -e "${redColour}Not found.${endColour}"
-    fi
+function getMachineNamesByDifficultyAndOS() {
+  echo -e "\n${yellowColour}[+] Searching machines names by difficulty '$machineDifficulty' and operative system '$OS':${endColour}"
+  machineNames="$(cat $htbmachines | grep -i "so: \"$OS\"" -C 4 | grep -i "dificultad: \"$machineDifficulty\"" -B 5 | grep "name: " | awk '{print $2}' | tr -d '",' | column)"
+  printResponse "$machineNames"
 }
 
 while getopts "d:m:ui:y:o:s:h" arg; do
   case $arg in
-    d) machineDifficulty=$OPTARG; getMachineNamesByDifficulty;;
-    m) machineName=$OPTARG; let parameter_counter+=1;;
-    u) let parameter_counter+=2;;
-    i) ipAddress=$OPTARG; let parameter_counter+=3;;
-    y) machineName=$OPTARG; let parameter_counter+=4;;
-    o) htb_os=$OPTARG; let parameter_counter+=6;;
-    s) skill=$OPTARG; let parameter_counter+=7;;
+    d) machineDifficulty=$OPTARG;
+       parameter_counter+=1
+       ;;
     h) showHelpPanel;;
+    i) ipAddress=$OPTARG;
+       getMachineNameByIp;;
+    m) machineName=$OPTARG;
+       getMachineInfoByName;;
+    o) OS=$OPTARG;
+       parameter_counter+=5
+       ;;
+    s) skill=$OPTARG;
+       getMachineNamesBySkill;;
+    u) updateHtbmachines;;
+    y) machineName=$OPTARG;
+       getYoutubeLinkByName;;
     ?) showHelpPanel
        exit 1
        ;;
@@ -159,19 +151,11 @@ while getopts "d:m:ui:y:o:s:h" arg; do
 done
 
 if [ $parameter_counter -eq 1 ]; then
-	searchMachine $machineName
-elif [ $parameter_counter -eq 2 ]; then
-	updateFiles
-elif [ $parameter_counter -eq 3 ]; then
-	searchByIP $ipAddress
-elif [ $parameter_counter -eq 4 ]; then
-	findLinkByName $machineName
+  getMachineNamesByDifficulty
+elif [ $parameter_counter -eq 5 ]; then
+  getMachineNamesByOS
 elif [ $parameter_counter -eq 6 ]; then
-	getMachinesByOS $htb_os
-elif [ $parameter_counter -eq 11 ]; then
-	getMachinesByDifficultyAndOS $difficulty $htb_os
-elif [ $parameter_counter -eq 7 ]; then
-	getMachinesBySkill "$skill"
+  getMachineNamesByDifficultyAndOS
 else
-	showHelpPanel
+  showHelpPanel
 fi
